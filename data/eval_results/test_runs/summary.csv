@@ -1,0 +1,3 @@
+run_id,timestamp,notes,le2i_videos,le2i_precision,le2i_recall,le2i_f1,multicam_videos,multicam_precision,multicam_recall,multicam_f1,overall_precision,overall_recall,overall_f1
+2026-06-30_15-52-57,2026-06-30T16:00:42.097750,baseline after revert from velocity gate experiment (fp counting bug fixed),15,100.0,73.3,84.6,42,45.7,69.6,55.2,58.7,71.1,64.3
+2026-06-30_16-32-56,2026-06-30T18:50:01.863493,ML RandomForest v1 - hip_y+AR dominant features,22,63.2,80.0,70.6,72,22.2,60.9,32.6,31.7,68.4,43.3,ml

@@ -50,9 +50,11 @@ def evaluate_video(
     ann_path: Path,
     model: YOLO,
     camera_id: str = "eval",
+    detector: str = "rule",
 ) -> dict:
     """
     Run pipeline on one video, compare to ground truth.
+    detector: "rule" (hand-coded FallFSM) or "ml" (trained classifier, MLFallFSM).
     Returns result dict.
     """
     gt = parse_annotation(ann_path)
@@ -65,6 +67,11 @@ def evaluate_video(
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    if detector == "ml":
+        from ml_fall_fsm import MLFallFSM as FSMClass
+    else:
+        FSMClass = FallFSM
 
     fall_fsms:   dict[int, FallFSM]         = {}
     inactivity:  dict[int, InactivityTimer] = {}
@@ -99,7 +106,7 @@ def evaluate_video(
         for i, tid in enumerate(ids):
             kps = kps_list[i] if i < len(kps_list) else None
             if tid not in fall_fsms:
-                fall_fsms[tid]  = FallFSM(tid)
+                fall_fsms[tid]  = FSMClass(tid)
                 inactivity[tid] = InactivityTimer(tid)
 
             angle  = body_axis_angle(kps)

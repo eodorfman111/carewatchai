@@ -1,0 +1,40 @@
+run_id,dataset,video,expected,predicted,result_type,correct,gt_fall_start,detected_frame,latency_frames,fp_count,total_frames
+2026-06-30_15-52-57,Le2i,video (1).avi,Fall,Fall,TP,True,48,75,27,0,157
+2026-06-30_15-52-57,Le2i,video (10).avi,Fall,Fall,TP,True,211,237,26,0,362
+2026-06-30_15-52-57,Le2i,video (11).avi,Fall,Fall,TP,True,375,398,23,0,483
+2026-06-30_15-52-57,Le2i,video (12).avi,Fall,No Fall,FN,False,53,,,0,182
+2026-06-30_15-52-57,Le2i,video (13).avi,Fall,Fall,TP,True,96,130,34,0,244
+2026-06-30_15-52-57,Le2i,video (14).avi,Fall,No Fall,FN,False,52,,,0,176
+2026-06-30_15-52-57,Le2i,video (15).avi,Fall,No Fall,FN,False,48,,,0,140
+2026-06-30_15-52-57,Le2i,video (2).avi,Fall,Fall,TP,True,192,226,34,0,306
+2026-06-30_15-52-57,Le2i,video (3).avi,Fall,Fall,TP,True,223,250,27,0,304
+2026-06-30_15-52-57,Le2i,video (4).avi,Fall,No Fall,FN,False,123,,,0,207
+2026-06-30_15-52-57,Le2i,video (5).avi,Fall,Fall,TP,True,129,156,27,0,181
+2026-06-30_15-52-57,Le2i,video (6).avi,Fall,Fall,TP,True,136,200,64,0,239
+2026-06-30_15-52-57,Le2i,video (7).avi,Fall,Fall,TP,True,96,132,36,0,174
+2026-06-30_15-52-57,Le2i,video (8).avi,Fall,Fall,TP,True,157,204,47,0,258
+2026-06-30_15-52-57,Le2i,video (9).avi,Fall,Fall,TP,True,93,169,76,0,206
+2026-06-30_15-52-57,MultiCam,chute01_cam2.avi,Fall,Fall,TP,True,1083,1124,41,0,1562
+2026-06-30_15-52-57,MultiCam,chute02_cam2.avi,Fall,No Fall,FN,False,415,,,2,846
+2026-06-30_15-52-57,MultiCam,chute03_cam2.avi,Fall,Fall,TP,True,607,655,48,1,943
+2026-06-30_15-52-57,MultiCam,chute04_cam2.avi,Fall,Fall,TP,True,367,741,374,0,1056
+2026-06-30_15-52-57,MultiCam,chute05_cam2.avi,Fall,No Fall,FN,False,333,,,1,774
+2026-06-30_15-52-57,MultiCam,chute06_cam2.avi,Fall,Fall,TP,True,683,740,57,0,1356
+2026-06-30_15-52-57,MultiCam,chute07_cam2.avi,Fall,Fall,TP,True,491,537,46,1,912
+2026-06-30_15-52-57,MultiCam,chute08_cam2.avi,Fall,Fall,TP,True,350,395,45,1,700
+2026-06-30_15-52-57,MultiCam,chute09_cam2.avi,Fall,No Fall,FN,False,634,,,1,924
+2026-06-30_15-52-57,MultiCam,chute10_cam2.avi,Fall,Fall,TP,True,520,550,30,0,944
+2026-06-30_15-52-57,MultiCam,chute11_cam2.avi,Fall,No Fall,FN,False,466,,,1,803
+2026-06-30_15-52-57,MultiCam,chute12_cam2.avi,Fall,Fall,TP,True,606,718,112,0,922
+2026-06-30_15-52-57,MultiCam,chute13_cam2.avi,Fall,Fall,TP,True,861,905,44,0,1223
+2026-06-30_15-52-57,MultiCam,chute14_cam2.avi,Fall,Fall,TP,True,1027,1066,39,0,1486
+2026-06-30_15-52-57,MultiCam,chute15_cam2.avi,Fall,No Fall,FN,False,774,,,1,1090
+2026-06-30_15-52-57,MultiCam,chute16_cam2.avi,Fall,Fall,TP,True,925,973,48,1,1240
+2026-06-30_15-52-57,MultiCam,chute17_cam2.avi,Fall,Fall,TP,True,761,800,39,2,1544
+2026-06-30_15-52-57,MultiCam,chute18_cam2.avi,Fall,Fall,TP,True,676,736,60,0,1007
+2026-06-30_15-52-57,MultiCam,chute19_cam2.avi,Fall,No Fall,FN,False,527,,,0,1024
+2026-06-30_15-52-57,MultiCam,chute20_cam2.avi,Fall,Fall,TP,True,554,796,242,0,992
+2026-06-30_15-52-57,MultiCam,chute21_cam2.avi,Fall,Fall,TP,True,898,958,60,2,1217
+2026-06-30_15-52-57,MultiCam,chute22_cam2.avi,Fall,No Fall,FN,False,818,,,2,1155
+2026-06-30_15-52-57,MultiCam,chute23_cam2.avi,Fall,Fall,TP,True,1572,2743,1171,2,5402
+2026-06-30_15-52-57,MultiCam,chute24_cam2.avi,No Fall,Fall,FP,False,,,,2,3709

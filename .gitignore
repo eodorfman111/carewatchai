@@ -9,6 +9,11 @@ env/
 # Large files — don't commit raw pipeline videos or model weights
 data/videos/
 data/sample_videos/
+data/le2i/
+data/multicam/
+data/training/
+data/le2i_filelist.txt
+data/multicam_filelist.txt
 models/*.pt
 *.pt
 incidents/snapshots/
