@@ -1,3 +1,4 @@
 timestamp,dataset_name,kaggle_slug,subset,notes,videos_evaluated,true_positives,false_negatives,false_positives,precision,recall,f1_score,avg_latency_frames
 2026-06-30T10:16:14.197087,Le2i-Coffee_room_01,tuyenldvn/falldataset-imvia,all,"15 videos, after bbox aspect ratio + FSM noise tolerance fix",15,11,4,0,100.0,73.3,84.6,38.3
 2026-06-30T10:31:59.084032,Le2i,tuyenldvn/falldataset-imvia,all,,,,,,,,,
+2026-06-30T10:56:50.630967,MultiCam-nursing-home-reenacted,soumicksarker/multiple-cameras-fall-dataset,all,"First run on real nursing-home-reenacted falls (24 chutes, cam2 angle). Much harder than Le2i due to confounding ADL events interleaved with falls.",24,16,7,20,44.4,69.6,54.2,153.5
