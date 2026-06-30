@@ -15,6 +15,7 @@ import warnings
 import joblib
 import pandas as pd
 
+from config import ML_PREDICT_THRESHOLD
 from fall_fsm import FallState, FALL_CONFIRM_FRAMES, FALL_RESET_FRAMES, SUSPECT_GRACE_FRAMES
 
 MODEL_PATH = Path(__file__).parent.parent / "models" / "fall_classifier.joblib"
@@ -127,4 +128,5 @@ class MLFallFSM:
         X = pd.DataFrame([[features[c] for c in feature_cols]], columns=feature_cols)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            return bool(clf.predict(X)[0])
+            prob = clf.predict_proba(X)[0][1]  # P(fall)
+        return prob >= ML_PREDICT_THRESHOLD
