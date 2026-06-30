@@ -73,48 +73,31 @@ python -m streamlit run website/app.py --server.port 8502
 ```
 
 ## Project structure
-#src/
+# src/
 
+- pipeline.py           — main inference loop
+- fall_fsm.py           — fall detection state machine
+- inactivity_timer.py   — stillness detection
+- wandering_detector.py — nighttime wandering
+- zone_manager.py       — polygon zone logic
+- pose_utils.py         — keypoint math
+- gait_tracker.py       — walking speed estimation
+- overlay.py            — visualization
+- incident_log.py       — SQLite logging
+- evaluate.py           — Le2i dataset evaluator
+  
+# scripts/
+- run_eval.py             — download Le2i + run evaluation
+  
+# dashboard/
+- app.py                — staff alert dashboard
 
-pipeline.py           — main inference loop
+# website/
+- app.py                — marketing site
 
-#fall_fsm.py           — fall detection state machine
-
-#inactivity_timer.py   — stillness detection
-
-#wandering_detector.py — nighttime wandering
-
-#zone_manager.py       — polygon zone logic
-
-#pose_utils.py         — keypoint math
-
-#gait_tracker.py       — walking speed estimation
-
-#overlay.py            — visualization
-
-#incident_log.py       — SQLite logging
-
-#evaluate.py           — Le2i dataset evaluator
-
-#scripts/
-
-run_eval.py           — download Le2i + run evaluation
-
-dashboard/
-
-app.py                — staff alert dashboard
-
-website/
-
-app.py                — marketing site
-
-data/
-
-zones/zones.json      — camera zone configuration
-
-videos/               — gitignored, download via run_eval.py
-
+# data/
+- zones/zones.json      — camera zone configuration
+- videos/               — gitignored, download via run_eval.py
 
 ## Live demo
-
 [carewatchai.com](https://carewatchai.com)
