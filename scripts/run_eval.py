@@ -121,12 +121,50 @@ def parse_summary(output: str) -> dict:
     }
 
 
+def parse_failures(output: str) -> list[dict]:
+    """
+    Parse per-video results from evaluate.py output.
+    Returns a list of dicts for every video, with extra detail on misses.
+    """
+    failures = []
+    # Match lines like: "video (4).avi   True   MISSED   0   1   0   —   ❌ MISS"
+    pattern = re.compile(
+        r"^(video\s*\(\d+\)\.\w+)\s+"   # filename
+        r"(\w+)\s+"                       # has_fall (True/False)
+        r"(frame\s+\d+|MISSED)\s+"        # detected
+        r"(\d+)\s+(\d+)\s+(\d+)",         # TP FN FP
+        re.MULTILINE,
+    )
+    for m in pattern.finditer(output):
+        video, has_fall, detected, tp, fn, fp = m.groups()
+        missed = detected.strip() == "MISSED"
+        false_positive = int(fp) > 0
+        if missed or false_positive:
+            failures.append({
+                "video":          video.strip(),
+                "has_fall":       has_fall == "True",
+                "detected":       detected.strip(),
+                "tp":             int(tp),
+                "fn":             int(fn),
+                "fp":             int(fp),
+                "miss_type":      "false_negative" if missed else "false_positive",
+                "download_cmd":   (
+                    f'kaggle datasets download tuyenldvn/falldataset-imvia '
+                    f'-f "Coffee_room_01/Coffee_room_01/{video.strip()}" '
+                    f'-p /tmp/carewatchai_debug --unzip'
+                ),
+            })
+    return failures
+
+
 # ── Results saving ─────────────────────────────────────────────────────────────
 
 def save_results(dataset_name, kaggle_slug, subset, notes, summary, raw_output) -> Path:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d_%H-%M")
+
+    failures = parse_failures(raw_output)
 
     result = {
         "timestamp":    now.isoformat(),
@@ -135,8 +173,16 @@ def save_results(dataset_name, kaggle_slug, subset, notes, summary, raw_output) 
         "subset":       subset or "all",
         "notes":        notes,
         **summary,
+        "failures":     failures,
         "raw_output":   raw_output,
     }
+
+    if failures:
+        print(f"\n[INFO] {len(failures)} failure(s) recorded:")
+        for f in failures:
+            tag = "❌ MISS" if f["miss_type"] == "false_negative" else "⚠️  FALSE POS"
+            print(f"  {tag}  {f['video']}")
+        print(f"\n  To debug, download individual videos with the 'download_cmd' in the JSON.")
 
     slug_safe = dataset_name.replace("/", "-").replace(" ", "_")
     json_path = RESULTS_DIR / f"{timestamp}_{slug_safe}.json"
