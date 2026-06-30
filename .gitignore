@@ -22,3 +22,5 @@ incidents/incidents.db
 # OS
 .DS_Store
 Thumbs.db
+data/videos/
+data/videos/
