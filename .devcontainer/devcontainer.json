@@ -1,0 +1,13 @@
+{
+  "name": "CareWatch AI",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "postCreateCommand": "pip uninstall opencv-python -y ; pip install -r requirements.txt && pip install --force-reinstall --no-cache-dir opencv-python-headless",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "ms-python.vscode-pylance"],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      }
+    }
+  }
+}

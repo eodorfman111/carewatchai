@@ -7,14 +7,15 @@ venv/
 env/
 
 # Large files — don't commit raw pipeline videos or model weights
-data/sample_videos/*.mp4
-data/sample_videos/*.avi
-# static/ videos ARE committed (needed for deployment)
+data/videos/
+data/sample_videos/
 models/*.pt
 *.pt
 incidents/snapshots/
 incidents/skeleton_only/
 incidents/incidents.db
+
+# static/ videos ARE committed (needed for deployment)
 
 # Streamlit
 .streamlit/secrets.toml
