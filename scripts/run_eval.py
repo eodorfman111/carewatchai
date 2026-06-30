@@ -29,6 +29,12 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# Windows consoles default to cp1252, which can't encode the emoji/arrow
+# characters this script and evaluate.py print. Force UTF-8 stdout so
+# Windows and Codespaces/Linux behave identically.
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 REPO_ROOT      = Path(__file__).parent.parent
 DATA_DIR       = REPO_ROOT / "data" / "videos"
@@ -185,7 +191,10 @@ def run_evaluation(dataset_root: Path, subset: str | None) -> tuple[int, str]:
 
     # Tee output: show in terminal AND capture it
     lines = []
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    process = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, encoding="utf-8", errors="replace",
+    )
     for line in process.stdout:
         print(line, end="")
         lines.append(line)

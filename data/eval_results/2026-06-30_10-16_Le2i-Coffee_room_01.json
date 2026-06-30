@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-06-30T10:16:14.197087",
+  "dataset_name": "Le2i-Coffee_room_01",
+  "kaggle_slug": "tuyenldvn/falldataset-imvia",
+  "subset": "all",
+  "notes": "15 videos, after bbox aspect ratio + FSM noise tolerance fix",
+  "videos_evaluated": 15,
+  "true_positives": 11,
+  "false_negatives": 4,
+  "false_positives": 0,
+  "precision": 100.0,
+  "recall": 73.3,
+  "f1_score": 84.6,
+  "avg_latency_frames": 38.3,
+  "raw_output": "\nEvaluating 15 videos...\n\nVideo                               Has Fall   Detected   TP   FN   FP   Latency\n--------------------------------------------------------------------------------\nvideo (1).avi                       True       frame 75   1    0    0    27f  \u2705\nvideo (10).avi                      True       frame 237  1    0    0    26f  \u2705\nvideo (11).avi                      True       frame 398  1    0    0    23f  \u2705\nvideo (12).avi                      True       MISSED     0    1    0    \u2014  \u274c MISS\nvideo (13).avi                      True       frame 130  1    0    0    34f  \u2705\nvideo (14).avi                      True       MISSED     0    1    0    \u2014  \u274c MISS\nvideo (15).avi                      True       MISSED     0    1    0    \u2014  \u274c MISS\nvideo (2).avi                       True       frame 226  1    0    0    34f  \u2705\nvideo (3).avi                       True       frame 250  1    0    0    27f  \u2705\nvideo (4).avi                       True       MISSED     0    1    0    \u2014  \u274c MISS\nvideo (5).avi                       True       frame 156  1    0    0    27f  \u2705\nvideo (6).avi                       True       frame 200  1    0    0    64f  \u2705\nvideo (7).avi                       True       frame 132  1    0    0    36f  \u2705\nvideo (8).avi                       True       frame 204  1    0    0    47f  \u2705\nvideo (9).avi                       True       frame 169  1    0    0    76f  \u2705\n\n================================================================================\nRESULTS SUMMARY\n  Videos evaluated : 15\n  True Positives   : 11\n  False Negatives  : 4  (missed falls)\n  False Positives  : 0  (wrong alerts)\n  Precision        : 100.0%\n  Recall           : 73.3%\n  F1 Score         : 84.6%\n  Avg Latency      : 38.3 frames (1.3s at 30fps)\n================================================================================\n[mp3float @ 00000203bf20c180] Header missing\n[mp3float @ 00000203bf20c180] Header missing\n[mp3float @ 00000203bf20c180] Header missing\n[mp3float @ 00000203f4fd4800] Header missing\n[mp3float @ 00000203f4fd4c80] Header missing\n[mp3float @ 00000203f4fd6380] Header missing\n[mp3float @ 00000203f4fd6380] Header missing\n[mp3float @ 00000203f4fd6380] Header missing\n[mp3float @ 00000203f4fd6380] Header missing\n[mp3float @ 00000203f4fd4c80] Header missing\n[mp3float @ 00000203f4fd5a40] Header missing\n[mp3float @ 00000203f4fd5a40] Header missing\n[mp3float @ 00000203f4fd5a40] Header missing\n[mp3float @ 00000203f4fd6380] Header missing\n[mp3float @ 00000203f4fd6380] Header missing\n[mp3float @ 00000203f4fd6380] Header missing\n[mp3float @ 00000203f4fde340] Header missing\n[mp3float @ 00000203f4fddec0] Header missing\n[mp3float @ 00000203f4fde7c0] Header missing\n[mp3float @ 00000203f4fddec0] Header missing\n"
+}
