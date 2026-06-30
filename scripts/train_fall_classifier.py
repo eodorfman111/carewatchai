@@ -42,7 +42,7 @@ def main() -> None:
           f"({df['label'].mean():.1%} positive)\n")
 
     # ── Video-level train/test split (prevents leakage) ─────────────────────
-    videos = df["video"].unique()
+    videos = df["video"].unique().tolist()
     rng = np.random.RandomState(42)
     rng.shuffle(videos)
     split_idx = int(len(videos) * 0.8)
