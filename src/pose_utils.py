@@ -67,6 +67,19 @@ def hip_y_fraction(keypoints: np.ndarray, frame_height: int) -> float | None:
     return float(mid_y / frame_height)
 
 
+def bbox_aspect_ratio(box: tuple[float, float, float, float]) -> float:
+    """
+    width / height of bounding box.
+    Standing person: tall & narrow → ratio < 1
+    Fallen person: wide & short → ratio > 1
+    Robust to camera-angle foreshortening that breaks 2D skeleton-angle math.
+    """
+    x1, y1, x2, y2 = box
+    w = max(x2 - x1, 1e-6)
+    h = max(y2 - y1, 1e-6)
+    return float(w / h)
+
+
 def centroid_from_keypoints(keypoints: np.ndarray) -> tuple[float, float] | None:
     """Mean (x, y) of all visible keypoints."""
     if keypoints is None or len(keypoints) == 0:

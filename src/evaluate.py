@@ -23,7 +23,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from config import POSE_MODEL, CONF_THRESHOLD, IOU_THRESHOLD, TRACKER_CONFIG
-from pose_utils import body_axis_angle, hip_y_fraction, centroid_from_keypoints
+from pose_utils import body_axis_angle, hip_y_fraction, centroid_from_keypoints, bbox_aspect_ratio
 from fall_fsm import FallFSM, FallState
 from inactivity_timer import InactivityTimer
 
@@ -92,6 +92,7 @@ def evaluate_video(
             continue
 
         ids      = results[0].boxes.id.int().cpu().tolist()
+        boxes    = results[0].boxes.xyxy.cpu().numpy()
         kps_list = (results[0].keypoints.data.cpu().numpy()
                     if results[0].keypoints else [])
 
@@ -103,7 +104,8 @@ def evaluate_video(
 
             angle  = body_axis_angle(kps)
             hip_y  = hip_y_fraction(kps, h)
-            _, fired = fall_fsms[tid].update(angle, hip_y)
+            ar     = bbox_aspect_ratio(tuple(boxes[i])) if i < len(boxes) else None
+            _, fired = fall_fsms[tid].update(angle, hip_y, ar)
 
             if fired:
                 if has_fall and fall_start <= frame_n <= fall_end + 150:

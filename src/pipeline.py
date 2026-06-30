@@ -26,7 +26,7 @@ from config import (
     POSE_MODEL, CONF_THRESHOLD, IOU_THRESHOLD, TRACKER_CONFIG,
     RESTRICTED_HOURS, STORE_SKELETON_CLIP,
 )
-from pose_utils import body_axis_angle, hip_y_fraction, centroid_from_keypoints
+from pose_utils import body_axis_angle, hip_y_fraction, centroid_from_keypoints, bbox_aspect_ratio
 from fall_fsm import FallFSM, FallState
 from inactivity_timer import InactivityTimer
 from wandering_detector import WanderingDetector
@@ -117,7 +117,8 @@ def run(source: str | int, camera_id: str, display: bool = False) -> None:
                 # ── Fall FSM ──────────────────────────────────────────────
                 angle   = body_axis_angle(kps)
                 hip_y   = hip_y_fraction(kps, h)
-                fall_state, fall_fired = fall_fsms[tid].update(angle, hip_y)
+                aspect_ratio = bbox_aspect_ratio(tuple(box))
+                fall_state, fall_fired = fall_fsms[tid].update(angle, hip_y, aspect_ratio)
 
                 if fall_fired:
                     flags["fall"] = True

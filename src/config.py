@@ -19,7 +19,7 @@ FALL_ANGLE_THRESHOLD = 45.0
 # Hip Y must be within this fraction of frame height from floor
 FLOOR_PROXIMITY_FRACTION = 0.60
 # Frames the "down" state must persist before alert fires
-FALL_CONFIRM_FRAMES = 45         # ~1.5 s at 30 fps
+FALL_CONFIRM_FRAMES = 15         # ~0.5 s at 30 fps — real fall transitions are short
 # Frames of upright posture needed to reset fall state
 FALL_RESET_FRAMES = 15
 
