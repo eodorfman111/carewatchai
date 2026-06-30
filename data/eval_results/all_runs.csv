@@ -1,0 +1,2 @@
+timestamp,dataset_name,kaggle_slug,subset,notes,videos_evaluated,true_positives,false_negatives,false_positives,precision,recall,f1_score,avg_latency_frames
+2026-06-30T10:16:14.197087,Le2i-Coffee_room_01,tuyenldvn/falldataset-imvia,all,"15 videos, after bbox aspect ratio + FSM noise tolerance fix",15,11,4,0,100.0,73.3,84.6,38.3
