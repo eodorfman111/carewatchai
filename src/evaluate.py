@@ -20,21 +20,59 @@ import os
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
+import types
+
 import cv2
 import numpy as np
+
+# Every crash we've hit on GitHub Actions ubuntu-latest (glibc heap
+# corruption: "corrupted double-linked list" / "double free or corruption
+# (!prev)" / "munmap_chunk(): invalid pointer") happens deep in torch's
+# native Conv2d forward on the very first inference call — survived
+# thread-count pinning, KMP_DUPLICATE_LIB_OK, ATEN_CPU_CAPABILITY=default,
+# a CPU-only torch build, and even downgrading torch (2.5.1 -> 2.3.1), so
+# it isn't a torch-version or CUDA-probing bug. The one constant across
+# every crash report's "Extension modules" list is lap._lapjv — imported
+# unconditionally at module level by ultralytics/trackers/utils/matching.py
+# the moment tracking is set up, before any of its code actually runs.
+# Ultralytics ships a pure-NumPy fallback assignment solver with no
+# compiled extension at all (utils/ops.linear_sum_assignment) specifically
+# so scipy/lap aren't required; stubbing `lap` out with it avoids loading
+# lap's native code into the process at all, rather than just not calling
+# it. Doesn't reproduce locally to confirm, but this is the most direct
+# test yet of "lap's native extension is the actual poison" — if this
+# doesn't fix it, that theory is wrong too.
+_lap_stub = types.ModuleType("lap")
+_lap_stub.__version__ = "0.0.0-carewatchai-numpy-fallback"
+
+
+def _lapjv_via_ultralytics_numpy_fallback(cost_matrix, extend_cost=True, cost_limit=None, **kwargs):
+    from ultralytics.utils.ops import linear_sum_assignment as _lsa
+    row_ind, col_ind = _lsa(cost_matrix)
+    n, m = cost_matrix.shape
+    x = np.full(n, -1, dtype=int)
+    y = np.full(m, -1, dtype=int)
+    total_cost = 0.0
+    for r, c in zip(row_ind, col_ind):
+        if cost_limit is None or cost_matrix[r, c] <= cost_limit:
+            x[r] = c
+            y[c] = r
+            total_cost += cost_matrix[r, c]
+    return total_cost, x, y
+
+
+_lap_stub.lapjv = _lapjv_via_ultralytics_numpy_fallback
+sys.modules["lap"] = _lap_stub
+
 from ultralytics import YOLO
 from ultralytics.nn.tasks import BaseModel
 
 # Ultralytics always fuses Conv+BatchNorm layers on model load (a pure
 # inference-speed optimization — mathematically identical output, just
 # fewer ops) and doesn't expose a way to opt out via YOLO()/.track()
-# kwargs. On some Linux CI runners this crashes with a glibc heap
-# corruption ("corrupted double-linked list" / "double free or
-# corruption (!prev)") inside fuse_conv_and_bn — reproduced repeatedly on
-# GitHub Actions ubuntu-latest, never locally on macOS, root cause not
-# fully isolated. Since fusing doesn't affect what the model predicts,
-# and our fixed 15-video CI benchmark doesn't need the speed win, this
-# no-ops it out entirely rather than continuing to chase the crash.
+# kwargs. This crashed the same way as above (before the lap stub existed)
+# — kept disabled since fusing doesn't affect what the model predicts and
+# our fixed 15-video CI benchmark doesn't need the speed win.
 BaseModel.fuse = lambda self, verbose=True: self
 
 from config import (
