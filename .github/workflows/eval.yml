@@ -8,9 +8,24 @@ name: Eval Regression Gate
 #
 # Requires a KAGGLE_API_TOKEN repo secret (Settings > Secrets and variables
 # > Actions) — without it, the eval step fails fast with a clear message.
+#
+# Uses pull_request_target (not pull_request): PRs here go from
+# samanthadorfman/carewatchai into eodorfman111/carewatchai — two different
+# repos, so from GitHub's perspective every PR is cross-repo, same as a
+# fork PR. GitHub never sends repo secrets to a plain `pull_request`-triggered
+# run in that case (confirmed: PR #1 and #2 both failed instantly with no
+# Kaggle credentials). pull_request_target does get secrets, but runs using
+# the workflow file from *master*, not the PR branch — it will NOT test
+# itself from within the PR that introduces it (same bootstrapping gotcha
+# as pull_request); this file has to already be on master before a PR can
+# exercise it. It also means the job executes the PR's own code with
+# secrets available — a real reduced-security tradeoff, acceptable here
+# because both contributors are known/trusted, not appropriate if this repo
+# ever accepts outside PRs. We pin the checkout to the PR's head SHA so the
+# job actually evaluates the PR's changes rather than master's.
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [master]
 
 jobs:
@@ -19,6 +34,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: actions/setup-python@v5
         with:
