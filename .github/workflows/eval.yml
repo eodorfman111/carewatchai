@@ -1,0 +1,37 @@
+name: Eval Regression Gate
+
+# Runs the Le2i fall-detection benchmark on every PR into master and blocks
+# the merge if F1 regresses vs. the best historical run recorded in
+# data/eval_results/all_runs.csv. Uses the fixed 15-video CI benchmark
+# (scripts/run_eval.py's CI_BENCHMARK_VIDEOS) so results stay comparable to
+# that history instead of evaluating a different sample size.
+#
+# Requires a KAGGLE_API_TOKEN repo secret (Settings > Secrets and variables
+# > Actions) — without it, the eval step fails fast with a clear message.
+
+on:
+  pull_request:
+    branches: [master]
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Le2i eval (fixed CI benchmark subset)
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: python scripts/run_eval.py --subset Coffee_room_01 --dataset-name CI --no-commit
+
+      - name: Check for F1 regression
+        run: python scripts/check_regression.py

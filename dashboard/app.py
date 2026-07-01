@@ -8,8 +8,19 @@ import json
 import sqlite3
 import streamlit as st
 import pandas as pd
+from collections import Counter
 from datetime import datetime, timedelta
 from incident_log import recent_incidents, acknowledge, init_db
+
+EVAL_RESULTS_DIR = Path(__file__).parent.parent / "data" / "eval_results"
+ALL_RUNS_CSV     = EVAL_RESULTS_DIR / "all_runs.csv"
+
+# Mirrors "What good looks like" in ROADMAP.md — update both together.
+EVAL_TARGETS = {
+    "Fall detection": {"precision": 90.0, "recall": 85.0, "dataset_name_prefix": None},
+    "Bed exit":        {"precision": None, "recall": 95.0, "dataset_name_prefix": "BedExit"},
+    "Elopement":       {"precision": None, "recall": 99.0, "dataset_name_prefix": "Elopement"},
+}
 
 st.set_page_config(
     page_title="CareWatch AI",
@@ -121,7 +132,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-logo">Care<span>Watch</span> AI</div>', unsafe_allow_html=True)
     st.markdown('<div style="font-size:11px;color:#4b5563;margin-bottom:20px">Real-Time Senior Safety Monitor</div>', unsafe_allow_html=True)
     st.markdown("---")
-    page = st.radio("Navigate", ["🚨 Live Alerts", "📊 Analytics", "🗺️ Zone Editor", "📋 Incident Log"])
+    page = st.radio("Navigate", ["🚨 Live Alerts", "📊 Analytics", "📈 Eval Metrics", "🗺️ Zone Editor", "📋 Incident Log"])
     st.markdown("---")
     auto_refresh = st.checkbox("Auto-refresh (5s)", value=False)
     if st.button("🔄 Refresh Now", use_container_width=True):
@@ -261,6 +272,123 @@ elif page == "📊 Analytics":
     st.subheader("Incidents by Camera")
     cam_counts = df.groupby(["camera_id", "event_type"]).size().unstack(fill_value=0)
     st.dataframe(cam_counts, use_container_width=True)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PAGE: EVAL METRICS
+# ════════════════════════════════════════════════════════════════════════════
+elif page == "📈 Eval Metrics":
+    st.title("Eval Metrics")
+    st.caption("Detection accuracy over time, from data/eval_results/ "
+               "(produced by scripts/run_eval.py).")
+
+    if not ALL_RUNS_CSV.exists():
+        st.info("No eval runs recorded yet. Run `python scripts/run_eval.py` first.")
+        st.stop()
+
+    runs = pd.read_csv(ALL_RUNS_CSV)
+    runs["timestamp"] = pd.to_datetime(runs["timestamp"])
+    runs = runs.sort_values("timestamp")
+
+    scored = runs.dropna(subset=["f1_score"]).copy()
+    failed_run_count = len(runs) - len(scored)
+
+    if scored.empty:
+        st.warning("Every recorded run failed before producing a score "
+                    "(no F1/precision/recall) — nothing to plot yet.")
+        st.stop()
+
+    latest = scored.iloc[-1]
+
+    # ── KPI row ──────────────────────────────────────────────────────────────
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Latest F1",        f"{latest['f1_score']:.1f}%")
+    c2.metric("Latest Precision", f"{latest['precision']:.1f}%")
+    c3.metric("Latest Recall",    f"{latest['recall']:.1f}%")
+    c4.metric("Runs Recorded",    len(runs),
+              delta=f"{failed_run_count} failed" if failed_run_count else None,
+              delta_color="inverse")
+
+    st.caption(f"Latest run: **{latest['dataset_name']}** / {latest['subset']} "
+               f"— {int(latest['videos_evaluated'])} videos, "
+               f"{latest['timestamp']:%Y-%m-%d %H:%M}")
+
+    st.divider()
+
+    # ── Trend chart ──────────────────────────────────────────────────────────
+    st.subheader("Precision / Recall / F1 Over Time")
+    trend = scored.set_index("timestamp")[["precision", "recall", "f1_score"]]
+    trend.columns = ["Precision", "Recall", "F1"]
+    st.line_chart(trend)
+
+    st.divider()
+
+    # ── Pass/fail against ROADMAP targets ───────────────────────────────────
+    st.subheader("Status vs. ROADMAP Targets")
+    target_rows = []
+    for feature, target in EVAL_TARGETS.items():
+        prefix = target["dataset_name_prefix"]
+        feature_runs = (scored[scored["dataset_name"].str.startswith(prefix, na=False)]
+                         if prefix else scored)
+        if feature_runs.empty:
+            target_rows.append({
+                "Feature": feature, "Latest Precision": "—", "Latest Recall": "—",
+                "Target": f"P>{target['precision']}% R>{target['recall']}%"
+                          if target["precision"] else f"R>{target['recall']}%",
+                "Status": "⏳ not yet measured",
+            })
+            continue
+        r = feature_runs.iloc[-1]
+        meets_p = target["precision"] is None or r["precision"] >= target["precision"]
+        meets_r = r["recall"] >= target["recall"]
+        target_rows.append({
+            "Feature": feature,
+            "Latest Precision": f"{r['precision']:.1f}%",
+            "Latest Recall": f"{r['recall']:.1f}%",
+            "Target": f"P>{target['precision']}% R>{target['recall']}%"
+                      if target["precision"] else f"R>{target['recall']}%",
+            "Status": "✅ meets target" if (meets_p and meets_r) else "❌ below target",
+        })
+    st.dataframe(pd.DataFrame(target_rows), use_container_width=True, hide_index=True)
+
+    st.divider()
+
+    # ── Miss category breakdown (from per-run JSON, not the summary CSV) ────
+    st.subheader("Miss Reasons (False Negatives)")
+    st.caption("Why detections were missed, categorized by evaluate.py's "
+               "diagnostics — pulled from every saved run's JSON.")
+
+    category_counts: Counter = Counter()
+    fp_total = 0
+    for jf in EVAL_RESULTS_DIR.glob("*.json"):
+        try:
+            data = json.loads(jf.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        for failure in data.get("failures", []):
+            if failure.get("miss_type") == "false_positive":
+                fp_total += 1
+                continue
+            reason = failure.get("miss_reason") or {}
+            category_counts[reason.get("category", "uncategorized")] += 1
+
+    col_fn, col_fp = st.columns(2)
+    with col_fn:
+        if category_counts:
+            cat_df = pd.DataFrame(
+                sorted(category_counts.items(), key=lambda kv: -kv[1]),
+                columns=["Category", "Count"],
+            )
+            st.bar_chart(cat_df.set_index("Category"))
+        else:
+            st.info("No categorized misses recorded yet.")
+    with col_fp:
+        st.metric("Total False Positives (all runs)", fp_total)
+
+    if failed_run_count:
+        st.divider()
+        st.caption(f"⚠️ {failed_run_count} recorded run(s) produced no score at all "
+                   f"(download/setup failure) and are excluded from the charts above.")
 
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -175,6 +175,7 @@ AI safety monitoring for senior living facilities (40–80 residents) using thei
 | No RTSP stream tested on real IP camera | Unvalidated for real deployment | Test against a real camera ASAP |
 | Dashboard CSS fighting Streamlit default theme | Looks unpolished | Override Streamlit theme in `.streamlit/config.toml` |
 | evaluate.py only tested on synthetic runs | F1 score unvalidated | Run Le2i eval and record baseline |
+| CI regression gate (`scripts/check_regression.py`) blocks on F1 dropping, but F1 weights precision/recall equally while our own targets don't (bed exit wants >95% recall specifically, "missing one is worse than a false alarm at 3am") | A change that trades some precision for meaningfully better recall — a genuinely good tradeoff for a safety product — could still fail the gate | Gate on recall directly (per feature target) instead of/in addition to F1, once bed exit and elopement have their own eval scripts |
 
 ---
 
