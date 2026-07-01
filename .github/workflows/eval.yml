@@ -43,32 +43,30 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          # PYTHONFAULTHANDLER on a prior run caught a real traceback for
+          # the "corrupted double-linked list" crash we kept hitting here:
+          # it happens inside torch's own fuse_conv_and_bn (model loading),
+          # and the crash report's "Extension modules" list included
+          # cuda.bindings.* even though this runner has no GPU. Default pip
+          # installs of `torch` bundle CUDA support, and probing/initializing
+          # CUDA bindings on a driver-less machine is a known trigger for
+          # exactly this kind of heap corruption. Installing the CPU-only
+          # torch build first (before requirements.txt) avoids that
+          # entirely, rather than the OMP/BLAS thread-count and
+          # KMP_DUPLICATE_LIB_OK mitigations tried before this — those
+          # targeted the wrong layer (opencv/lap OpenMP conflicts) and did
+          # not fix it, kept here anyway since they're harmless.
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
 
       - name: Run Le2i eval (fixed CI benchmark subset)
         env:
           KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
-          # Ubuntu runner crashes with "corrupted double-linked list" (a
-          # glibc heap corruption abort, not a Python exception) right as
-          # torch/opencv/lap start real work — doesn't reproduce locally on
-          # macOS with identical numpy/lap versions, so it's platform-
-          # specific. Thread-count pinning alone (tried first) did NOT fix
-          # it — still crashed at the same spot. Now also trying
-          # KMP_DUPLICATE_LIB_OK: torch's wheels bundle Intel's libiomp5
-          # while opencv/lap's compiled extensions link GNU's libgomp; two
-          # OpenMP runtimes loaded in one process is a well-known trigger
-          # for exactly this crash signature, and this env var is the
-          # standard (if blunt) workaround. Still unverified locally (no
-          # Linux box here) — if this doesn't work either, next step is
-          # capturing a real core dump/traceback from the runner instead of
-          # guessing further.
           OMP_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
           MKL_NUM_THREADS: "1"
           KMP_DUPLICATE_LIB_OK: "TRUE"
-          # If the crash survives this fix too, this at least prints the
-          # Python-level stack that was executing when the signal hit,
-          # instead of just "corrupted double-linked list" with no context.
           PYTHONFAULTHANDLER: "1"
         run: python scripts/run_eval.py --subset Coffee_room_01 --dataset-name CI --no-commit
 
