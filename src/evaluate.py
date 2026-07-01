@@ -23,6 +23,19 @@ sys.path.insert(0, str(Path(__file__).parent))
 import cv2
 import numpy as np
 from ultralytics import YOLO
+from ultralytics.nn.tasks import BaseModel
+
+# Ultralytics always fuses Conv+BatchNorm layers on model load (a pure
+# inference-speed optimization — mathematically identical output, just
+# fewer ops) and doesn't expose a way to opt out via YOLO()/.track()
+# kwargs. On some Linux CI runners this crashes with a glibc heap
+# corruption ("corrupted double-linked list" / "double free or
+# corruption (!prev)") inside fuse_conv_and_bn — reproduced repeatedly on
+# GitHub Actions ubuntu-latest, never locally on macOS, root cause not
+# fully isolated. Since fusing doesn't affect what the model predicts,
+# and our fixed 15-video CI benchmark doesn't need the speed win, this
+# no-ops it out entirely rather than continuing to chase the crash.
+BaseModel.fuse = lambda self, verbose=True: self
 
 from config import (
     POSE_MODEL, CONF_THRESHOLD, IOU_THRESHOLD, TRACKER_CONFIG,
