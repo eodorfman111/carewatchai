@@ -68,6 +68,16 @@ jobs:
           MKL_NUM_THREADS: "1"
           KMP_DUPLICATE_LIB_OK: "TRUE"
           PYTHONFAULTHANDLER: "1"
+          # Disabling model fusing (src/evaluate.py) fixed that crash, but
+          # the next run crashed identically ("corrupted size vs.
+          # prev_size") one layer deeper: inside torch's own native Conv2d
+          # forward pass, on the very first real inference call. GitHub
+          # Actions ubuntu-latest runners are known to sometimes land on
+          # Azure VM CPUs with inconsistent AVX-512 support, which corrupts
+          # memory in PyTorch's vectorized CPU kernels — this forces PyTorch
+          # down to its baseline (non-vectorized) kernels to route around
+          # that. Unverified locally (can't reproduce this crash on macOS).
+          ATEN_CPU_CAPABILITY: "default"
         run: python scripts/run_eval.py --subset Coffee_room_01 --dataset-name CI --no-commit
 
       - name: Check for F1 regression
