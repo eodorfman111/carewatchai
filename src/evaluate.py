@@ -13,6 +13,8 @@ Usage:
     python src/evaluate.py --dataset "C:/path/to/Le2i" --all
 """
 import argparse
+import json
+import logging
 import sys
 import os
 from pathlib import Path
@@ -22,10 +24,15 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from config import POSE_MODEL, CONF_THRESHOLD, IOU_THRESHOLD, TRACKER_CONFIG
+from config import (
+    POSE_MODEL, CONF_THRESHOLD, IOU_THRESHOLD, TRACKER_CONFIG,
+    FALL_ANGLE_THRESHOLD, FLOOR_PROXIMITY_FRACTION, FALL_CONFIRM_FRAMES,
+)
 from pose_utils import body_axis_angle, hip_y_fraction, centroid_from_keypoints, bbox_aspect_ratio
-from fall_fsm import FallFSM, FallState
+from fall_fsm import FallFSM, FallState, ASPECT_RATIO_THRESHOLD
 from inactivity_timer import InactivityTimer
+
+logger = logging.getLogger(__name__)
 
 
 def parse_annotation(ann_file: Path) -> tuple[int, int] | None:
@@ -50,9 +57,11 @@ def evaluate_video(
     ann_path: Path,
     model: YOLO,
     camera_id: str = "eval",
+    detector: str = "rule",
 ) -> dict:
     """
     Run pipeline on one video, compare to ground truth.
+    detector: "rule" (hand-coded FallFSM) or "ml" (trained classifier, MLFallFSM).
     Returns result dict.
     """
     gt = parse_annotation(ann_path)
@@ -66,6 +75,11 @@ def evaluate_video(
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    if detector == "ml":
+        from ml_fall_fsm import MLFallFSM as FSMClass
+    else:
+        FSMClass = FallFSM
+
     fall_fsms:   dict[int, FallFSM]         = {}
     inactivity:  dict[int, InactivityTimer] = {}
 
@@ -73,11 +87,19 @@ def evaluate_video(
     false_positives = 0
     frame_n = 0
 
+    # Diagnostics captured only within the annotated fall window, so a miss
+    # can be explained after the fact instead of re-running the video.
+    fall_window_total_frames   = 0   # frames in [fall_start, fall_end] we processed
+    fall_window_tracked_frames = 0   # ...of those, frames YOLO had >=1 track for
+    fall_window_diag: list[dict] = []
+
     while True:
         ok, frame = cap.read()
         if not ok:
             break
         frame_n += 1
+
+        in_fall_window = has_fall and fall_start <= frame_n <= fall_end
 
         results = model.track(
             frame,
@@ -89,6 +111,12 @@ def evaluate_video(
         )
 
         if results[0].boxes.id is None:
+            if in_fall_window:
+                fall_window_total_frames += 1
+                logger.debug(
+                    "%s frame %d: YOLO lost tracking (no boxes.id) during fall window",
+                    video_path.name, frame_n,
+                )
             continue
 
         ids      = results[0].boxes.id.int().cpu().tolist()
@@ -96,16 +124,38 @@ def evaluate_video(
         kps_list = (results[0].keypoints.data.cpu().numpy()
                     if results[0].keypoints else [])
 
+        if in_fall_window:
+            fall_window_total_frames += 1
+            fall_window_tracked_frames += 1
+
         for i, tid in enumerate(ids):
             kps = kps_list[i] if i < len(kps_list) else None
             if tid not in fall_fsms:
-                fall_fsms[tid]  = FallFSM(tid)
+                fall_fsms[tid]  = FSMClass(tid)
                 inactivity[tid] = InactivityTimer(tid)
 
             angle  = body_axis_angle(kps)
             hip_y  = hip_y_fraction(kps, h)
             ar     = bbox_aspect_ratio(tuple(boxes[i])) if i < len(boxes) else None
-            _, fired = fall_fsms[tid].update(angle, hip_y, ar)
+            state, fired = fall_fsms[tid].update(angle, hip_y, ar)
+
+            if in_fall_window:
+                fall_window_diag.append({
+                    "frame":     frame_n,
+                    "track_id":  tid,
+                    "angle":     angle,
+                    "hip_y":     hip_y,
+                    "ar":        ar,
+                    "fsm_state": state.name,
+                })
+                logger.debug(
+                    "%s frame %d track %s: angle=%s hip_y=%s ar=%s fsm_state=%s",
+                    video_path.name, frame_n, tid,
+                    f"{angle:.1f}" if angle is not None else None,
+                    f"{hip_y:.2f}" if hip_y is not None else None,
+                    f"{ar:.2f}" if ar is not None else None,
+                    state.name,
+                )
 
             if fired:
                 if has_fall and fall_start <= frame_n <= fall_end + 150:
@@ -124,6 +174,14 @@ def evaluate_video(
 
     latency = (detected_frame - fall_start) if (tp and fall_start) else None
 
+    miss_reason = None
+    if fn:
+        miss_reason = _diagnose_miss(
+            video_path, fall_start, fall_end,
+            fall_window_total_frames, fall_window_tracked_frames,
+            fall_window_diag,
+        )
+
     return {
         "video":          video_path.name,
         "has_fall":       has_fall,
@@ -134,7 +192,179 @@ def evaluate_video(
         "fp":             fp,
         "latency_frames": latency,
         "total_frames":   total_frames,
+        "miss_reason":    miss_reason,
     }
+
+
+def _diagnose_miss(
+    video_path: Path,
+    fall_start: int,
+    fall_end: int,
+    window_total_frames: int,
+    window_tracked_frames: int,
+    diag: list[dict],
+) -> dict:
+    """
+    Explain why a video with an annotated fall got no alert: whether YOLO
+    lost tracking during the fall window, what the body angle looked like,
+    and how far the fall FSM progressed. Logs the explanation and returns
+    it as a structured dict so callers can persist it alongside the run's
+    pass/fail results (see scripts/run_eval.py).
+    """
+    logger.warning(
+        "MISS: %s — fall annotated at frames %d-%d, no alert fired",
+        video_path.name, fall_start, fall_end,
+    )
+
+    reason: dict = {
+        "fall_window": [fall_start, fall_end],
+        "window_total_frames":   window_total_frames,
+        "window_tracked_frames": window_tracked_frames,
+    }
+
+    if window_total_frames == 0:
+        logger.warning("  No frames were processed in the annotated fall window "
+                        "(video shorter than annotation, or read failed early)")
+        reason["category"] = "no_frames_processed"
+        reason["diagnosis"] = ("No frames were processed in the annotated fall window "
+                                "(video shorter than annotation, or read failed early)")
+        return reason
+
+    lost_frames = window_total_frames - window_tracked_frames
+    lost_pct = 100 * lost_frames / window_total_frames
+    reason["tracking_lost_frames"] = lost_frames
+    reason["tracking_lost_pct"]    = round(lost_pct, 1)
+    logger.warning(
+        "  YOLO tracking: %d/%d frames in fall window had a tracked person "
+        "(%d frames / %.0f%% lost tracking entirely)",
+        window_tracked_frames, window_total_frames, lost_frames, lost_pct,
+    )
+
+    if not diag:
+        logger.warning("  No pose data available during fall window — "
+                        "YOLO never produced a track, so angle/FSM cannot be evaluated")
+        reason["category"] = "no_track_data"
+        reason["diagnosis"] = ("YOLO never produced a track during the fall window — "
+                                "angle/FSM state cannot be evaluated")
+        return reason
+
+    angle_at_start = next((d["angle"] for d in diag if d["frame"] == fall_start), None)
+    reason["angle_at_fall_start"] = round(angle_at_start, 1) if angle_at_start is not None else None
+    reason["angle_threshold"]     = FALL_ANGLE_THRESHOLD
+    if angle_at_start is not None:
+        logger.warning(
+            "  Body angle at fall_start frame (%d): %.1f° (threshold=%.1f°)",
+            fall_start, angle_at_start, FALL_ANGLE_THRESHOLD,
+        )
+    else:
+        logger.warning(
+            "  Body angle at fall_start frame (%d): unavailable "
+            "(no track/keypoints on that exact frame)", fall_start,
+        )
+
+    angles = [d["angle"] for d in diag if d["angle"] is not None]
+    reason["angle_min"] = round(min(angles), 1) if angles else None
+    reason["angle_max"] = round(max(angles), 1) if angles else None
+    if angles:
+        logger.warning(
+            "  Body angle range across fall window: min=%.1f° max=%.1f° (threshold=%.1f°)",
+            min(angles), max(angles), FALL_ANGLE_THRESHOLD,
+        )
+    else:
+        logger.warning("  Body angle: never computed during fall window "
+                        "(keypoints missing/low confidence every frame)")
+
+    hip_ys = [d["hip_y"] for d in diag if d["hip_y"] is not None]
+    reason["hip_y_min"] = round(min(hip_ys), 2) if hip_ys else None
+    reason["hip_y_max"] = round(max(hip_ys), 2) if hip_ys else None
+    reason["hip_y_threshold"] = FLOOR_PROXIMITY_FRACTION
+
+    ars = [d["ar"] for d in diag if d["ar"] is not None]
+    reason["aspect_ratio_min"] = round(min(ars), 2) if ars else None
+    reason["aspect_ratio_max"] = round(max(ars), 2) if ars else None
+    reason["aspect_ratio_threshold"] = ASPECT_RATIO_THRESHOLD
+
+    states_reached = sorted({d["fsm_state"] for d in diag},
+                             key=lambda s: ["UPRIGHT", "SUSPECT", "FALLEN", "STANDING"].index(s))
+    reason["fsm_states_reached"] = states_reached
+    logger.warning("  Fall FSM states reached during window: %s", ", ".join(states_reached))
+
+    # Longest run of consecutive frames the FSM held SUSPECT — how close it
+    # got to FALL_CONFIRM_FRAMES before something (noise or a track swap)
+    # knocked it back to UPRIGHT.
+    longest_streak = current_streak = 0
+    for d in diag:
+        if d["fsm_state"] == "SUSPECT":
+            current_streak += 1
+            longest_streak = max(longest_streak, current_streak)
+        else:
+            current_streak = 0
+    reason["longest_suspect_streak_frames"] = longest_streak
+    reason["fall_confirm_frames_required"]  = FALL_CONFIRM_FRAMES
+
+    track_ids = sorted({d["track_id"] for d in diag})
+    reason["track_ids_in_window"] = track_ids
+
+    if "FALLEN" not in states_reached and "SUSPECT" in states_reached and len(track_ids) > 1:
+        reason["category"] = "track_id_churn"
+        reason["diagnosis"] = (
+            f"FSM entered SUSPECT (longest streak {longest_streak}/{FALL_CONFIRM_FRAMES} "
+            f"frames) but YOLO/ByteTrack reassigned the person to a new track ID mid-fall "
+            f"(track IDs seen: {track_ids}) — each new track starts a fresh FSM at UPRIGHT, "
+            f"resetting confirmation progress"
+        )
+        logger.warning(
+            "  Track ID changed mid-window (%s) — new tracks reset the FSM to UPRIGHT, "
+            "discarding SUSPECT progress (longest streak was %d/%d frames)",
+            track_ids, longest_streak, FALL_CONFIRM_FRAMES,
+        )
+    elif "FALLEN" not in states_reached and "SUSPECT" in states_reached:
+        reason["category"] = "suspect_not_sustained"
+        reason["diagnosis"] = (
+            f"FSM entered SUSPECT but longest consecutive down-pose streak was only "
+            f"{longest_streak}/{FALL_CONFIRM_FRAMES} frames — angle/hip_y likely oscillated "
+            f"around the threshold instead of holding steady"
+        )
+        logger.warning(
+            "  FSM entered SUSPECT but never confirmed FALLEN — longest streak was only "
+            "%d/%d frames (angle/hip_y dipped back above threshold before confirmation)",
+            longest_streak, FALL_CONFIRM_FRAMES,
+        )
+    elif "SUSPECT" not in states_reached:
+        reason["category"] = "never_triggered"
+
+        # Which of the two independent signals (angle+hip_y vs. bbox aspect
+        # ratio) got closer to tripping — tells us which one is worth fixing.
+        angle_frac = (reason["angle_max"] / FALL_ANGLE_THRESHOLD) if reason["angle_max"] is not None else 0
+        ar_frac    = (reason["aspect_ratio_max"] / ASPECT_RATIO_THRESHOLD) if reason["aspect_ratio_max"] is not None else 0
+        if angle_frac >= ar_frac:
+            reason["closer_signal"] = "angle"
+            closer_desc = (f"angle got closer ({reason['angle_max']}°/{FALL_ANGLE_THRESHOLD}° "
+                            f"vs. bbox {reason['aspect_ratio_max']}/{ASPECT_RATIO_THRESHOLD})")
+        else:
+            reason["closer_signal"] = "aspect_ratio"
+            closer_desc = (f"bbox aspect ratio got closer ({reason['aspect_ratio_max']}/{ASPECT_RATIO_THRESHOLD} "
+                            f"vs. angle {reason['angle_max']}°/{FALL_ANGLE_THRESHOLD}°)")
+
+        reason["diagnosis"] = (
+            f"is_down_pose never triggered — angle stayed at/below {FALL_ANGLE_THRESHOLD}° "
+            f"(max observed {reason['angle_max']}°, hip_y max {reason['hip_y_max']} vs. "
+            f"threshold {FLOOR_PROXIMITY_FRACTION}) and bbox aspect ratio never crossed its "
+            f"threshold either (max observed {reason['aspect_ratio_max']} vs. "
+            f"{ASPECT_RATIO_THRESHOLD}); {closer_desc}. This fall is likely foreshortened "
+            f"toward/away from the camera, which the current angle+bbox signals can't catch"
+        )
+        logger.warning(
+            "  FSM never left UPRIGHT — is_down_pose never triggered "
+            "(angle > %.1f° and hip_y > %.2f, or bbox aspect ratio > %.1f, never held). "
+            "%s",
+            FALL_ANGLE_THRESHOLD, FLOOR_PROXIMITY_FRACTION, ASPECT_RATIO_THRESHOLD, closer_desc,
+        )
+    else:
+        reason["category"] = "unknown"
+        reason["diagnosis"] = "FSM never reached SUSPECT or FALLEN; no further signal available"
+
+    return reason
 
 
 def run_evaluation(dataset_root: Path, subset: str | None = None) -> None:
@@ -177,9 +407,11 @@ def run_evaluation(dataset_root: Path, subset: str | None = None) -> None:
     total_tp = total_fn = total_fp = 0
     latencies = []
     errors = []
+    all_results: list[dict] = []
 
     for video_path, ann_path in pairs:
         r = evaluate_video(video_path, ann_path, model)
+        all_results.append(r)
 
         if "error" in r:
             errors.append(r["error"])
@@ -226,6 +458,11 @@ def run_evaluation(dataset_root: Path, subset: str | None = None) -> None:
         for e in errors:
             print(f"  {e}")
 
+    # Machine-readable per-video results (including miss diagnostics) for
+    # scripts/run_eval.py to persist into data/eval_results/ — avoids
+    # re-deriving this from the printed table above.
+    print("RESULTS_JSON:" + json.dumps(all_results))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -233,6 +470,13 @@ if __name__ == "__main__":
                         help="Path to Le2i dataset root or subset folder")
     parser.add_argument("--subset",  default=None,
                         help="Specific subset e.g. Coffee_room_01")
+    parser.add_argument("--debug", action="store_true",
+                        help="Log per-frame angle/hip_y/FSM state during fall windows")
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.debug else logging.INFO,
+        format="%(levelname)s %(message)s",
+    )
 
     run_evaluation(Path(args.dataset), args.subset)

@@ -7,3 +7,5 @@ Pillow>=10.3.0
 sqlite-utils>=3.36
 python-dotenv>=1.0.0
 kaggle
+scikit-learn>=1.4.0
+joblib>=1.3.0

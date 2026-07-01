@@ -23,6 +23,11 @@ FALL_CONFIRM_FRAMES = 15         # ~0.5 s at 30 fps — real fall transitions ar
 # Frames of upright posture needed to reset fall state
 FALL_RESET_FRAMES = 15
 
+# ── ML fall classifier ─────────────────────────────────────────────────────
+# Probability threshold for RandomForest "down" classification.
+# Lower = higher recall (catch more falls), higher = higher precision (fewer false alarms).
+ML_PREDICT_THRESHOLD = 0.5
+
 # ── Inactivity timer ───────────────────────────────────────────────────────
 # Max centroid displacement (px) to count as "still"
 INACTIVITY_MOTION_THRESHOLD_PX = 30

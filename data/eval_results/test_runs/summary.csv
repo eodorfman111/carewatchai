@@ -1,0 +1,7 @@
+run_id,timestamp,notes,le2i_videos,le2i_precision,le2i_recall,le2i_f1,multicam_videos,multicam_precision,multicam_recall,multicam_f1,overall_precision,overall_recall,overall_f1
+2026-06-30_15-52-57,2026-06-30T16:00:42.097750,baseline after revert from velocity gate experiment (fp counting bug fixed),15,100.0,73.3,84.6,42,45.7,69.6,55.2,58.7,71.1,64.3
+2026-06-30_16-32-56,2026-06-30T18:50:01.863493,ML RandomForest v1 - hip_y+AR dominant features,22,63.2,80.0,70.6,72,22.2,60.9,32.6,31.7,68.4,43.3,ml
+2026-06-30_19-35-19,2026-06-30T20:00:19.438198,ML RandomForest v1 - hip_y+AR dominant features,22,63.2,80.0,70.6,72,22.2,60.9,32.6,31.7,68.4,43.3,ml
+2026-06-30_19-39-31,2026-06-30T20:05:22.427971,ML_v1,22,63.2,80.0,70.6,72,22.2,60.9,32.6,31.7,68.4,43.3,ml
+2026-06-30_20-01-15,2026-06-30T20:24:59.097476,ML_v1_thresh0.70,16,90.9,66.7,76.9,30,50.0,30.4,37.8,68.0,44.7,54.0,ml
+2026-06-30_20-25-42,2026-06-30T20:48:13.804423,ML_v1_thresh0.60,17,84.6,73.3,78.6,33,47.4,39.1,42.9,62.5,52.6,57.1,ml

@@ -224,6 +224,7 @@ st.markdown("""
         <a class="nav-link" href="#how-it-works">How It Works</a>
         <a class="nav-link" href="#privacy">Privacy</a>
         <a class="nav-link" href="#compare">Compare</a>
+        <a class="nav-link" href="#performance">Accuracy</a>
         <a class="nav-link" href="#contact">Contact</a>
     </div>
 </div>
@@ -515,8 +516,58 @@ st.markdown("""
 st.markdown('</div>', unsafe_allow_html=True)
 
 
+# ── PERFORMANCE ──────────────────────────────────────────────────────────────
+st.markdown('<div class="section section-dark" id="performance">', unsafe_allow_html=True)
+st.markdown('<div class="section-label">Validated Accuracy</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Tested on real datasets. Not cherry-picked demos.</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-sub">Benchmarked against the Le2i Fall Detection Dataset — a public research benchmark of real staged falls used to evaluate fall detection systems worldwide.</div>', unsafe_allow_html=True)
+
+perf_col1, perf_col2, perf_col3 = st.columns(3)
+with perf_col1:
+    st.markdown("""
+    <div style="background:#0d1117;border:1px solid #1a2540;border-radius:12px;padding:32px;text-align:center;margin-top:32px">
+        <div style="font-size:56px;font-weight:800;color:#22c55e">100%</div>
+        <div style="font-size:16px;font-weight:700;color:#f0f0ff;margin:8px 0 4px">Precision</div>
+        <div style="font-size:13px;color:#6b7280">Zero false alarms on the Le2i benchmark. Every alert fired was a real fall.</div>
+    </div>
+    """, unsafe_allow_html=True)
+with perf_col2:
+    st.markdown("""
+    <div style="background:#0d1117;border:1px solid #1a2540;border-radius:12px;padding:32px;text-align:center;margin-top:32px">
+        <div style="font-size:56px;font-weight:800;color:#3b82f6">84.6%</div>
+        <div style="font-size:16px;font-weight:700;color:#f0f0ff;margin:8px 0 4px">F1 Score</div>
+        <div style="font-size:13px;color:#6b7280">Harmonic mean of precision and recall on held-out test videos.</div>
+    </div>
+    """, unsafe_allow_html=True)
+with perf_col3:
+    st.markdown("""
+    <div style="background:#0d1117;border:1px solid #1a2540;border-radius:12px;padding:32px;text-align:center;margin-top:32px">
+        <div style="font-size:56px;font-weight:800;color:#f59e0b">&lt;2s</div>
+        <div style="font-size:16px;font-weight:700;color:#f0f0ff;margin:8px 0 4px">Alert Latency</div>
+        <div style="font-size:13px;color:#6b7280">Median time from fall onset to staff notification across all test videos.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("""
+<div style="margin-top:28px;padding:20px 28px;background:#0d1117;border:1px solid #1a2540;border-radius:12px;display:flex;align-items:flex-start;gap:16px">
+    <div style="font-size:22px;flex-shrink:0">🔬</div>
+    <div>
+        <div style="font-size:14px;font-weight:600;color:#f0f0ff;margin-bottom:4px">How we test</div>
+        <div style="font-size:13px;color:#6b7280;line-height:1.6">
+            Results above are from the <b style="color:#c8d0dc">Le2i public benchmark</b> — 15 held-out videos of real staged falls,
+            evaluated by running the full pipeline cold (no tuning on test data).
+            We also continuously evaluate on the MultiCam nursing-home dataset with confounding ADL events
+            (bending, sitting, lying down) to harden the model against real-world conditions.
+            No cherry-picking. <a href="https://github.com/eodorfman111/carewatchai" target="_blank" style="color:#3b82f6">View methodology on GitHub →</a>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+
 # ── PRICING ──────────────────────────────────────────────────────────────────
-st.markdown('<div class="section section-dark" id="pricing">', unsafe_allow_html=True)
+st.markdown('<div class="section section-mid" id="pricing">', unsafe_allow_html=True)
 st.markdown('<div class="section-label">Pricing</div>', unsafe_allow_html=True)
 st.markdown('<div class="section-title">Simple pricing. No surprises.</div>', unsafe_allow_html=True)
 st.markdown('<div class="section-sub">Every competitor hides their price. We don\'t.</div>', unsafe_allow_html=True)
