@@ -25,6 +25,9 @@ incidents/incidents.db
 # Streamlit
 .streamlit/secrets.toml
 
+# Temp logs from manual test runs
+ml_test_run*.log
+
 # OS
 .DS_Store
 Thumbs.db
