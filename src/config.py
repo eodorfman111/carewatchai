@@ -5,7 +5,7 @@ import json
 ROOT = Path(__file__).parent.parent
 
 # ── Model ──────────────────────────────────────────────────────────────────
-POSE_MODEL = "yolo11n-pose.pt"   # swap to yolo26n-pose.pt when weights land
+POSE_MODEL = "yolo26n-pose.pt"   # YOLO26: +7.2 AP over YOLO11 on COCO pose (RLE keypoint localization)
 CONF_THRESHOLD = 0.25
 IOU_THRESHOLD = 0.7
 
