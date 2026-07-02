@@ -4,6 +4,11 @@
 > Keep this current as work happens — update "Read This First" and "In
 > Progress" every session; trim "Recently Completed" down to a few bullets
 > instead of letting it grow forever. This is a living doc, not a diary.
+>
+> **Two people/agents are working on this repo in parallel** (confirmed
+> 2026-07-01). Expect concurrent changes on `master` between sessions —
+> `git fetch` both remotes and check recent commits before assuming the
+> state you last saw is still current.
 
 Last updated: 2026-07-01
 
@@ -11,25 +16,44 @@ Last updated: 2026-07-01
 
 ## Read This First
 
-**Branch**: `feat/eval-guardrails`, pushed to `origin`, PR not yet opened.
-Open it at: https://github.com/samanthadorfman/carewatchai/pull/new/feat/eval-guardrails
+**Two remotes, and they mean different things:**
+- `origin` → `samanthadorfman/carewatchai` — personal fork, used for
+  pushing feature branches.
+- `upstream` → `eodorfman111/carewatchai` — where PRs actually get merged.
+  This is the canonical branch history.
 
-**What it contains**: eval regression gating (see "Recently Completed" below).
-`KAGGLE_API_TOKEN` has been added as a GitHub Actions secret, so once the PR
-is opened, `.github/workflows/eval.yml` should run for real for the first
-time — **this has never actually executed on GitHub Actions yet**, only
-validated locally. Watch the first run closely; a fresh Ubuntu runner could
-hit something the local Mac testing didn't (opencv .avi codec support,
-network access to Kaggle/ultralytics, timing/timeout).
+`origin/master` is kept manually synced to `upstream/master` (merge, not
+rebase — see 2026-07-01 entry below). Don't assume `origin/master` is
+current without fetching upstream and diffing first.
+
+**Eval regression gate PR (#1) merged into `upstream/master`.** But the
+`eval.yml` workflow it added has **never actually run** — a
+`pull_request`-triggered workflow only uses the version already committed
+to the *base* branch, and this workflow was introduced in the same PR that
+was supposed to trigger it, so GitHub Actions skipped it for PR #1. It's
+live now and *will* trigger starting with the next PR. A follow-up PR
+(updating this doc) is being opened specifically to confirm it actually
+passes on GitHub Actions for the first time — check its Actions tab before
+trusting the gate is real.
+
+**A second workstream landed on `upstream/master` in parallel**: an ML
+RandomForest fall classifier (`src/ml_fall_fsm.py`, `evaluate_multicam.py`,
+`scripts/train_fall_classifier.py`, etc.), evaluated separately against a
+MultiCam nursing-home-reenacted dataset (F1=54.2%, much harder than Le2i).
+It hooks into `evaluate.py` via an optional `detector="ml"` param
+(defaults to `"rule"` = the hand-coded FSM this session's work is built
+around) — additive, not a replacement, as of this writing. Confirmed by
+diffing the actual merged file contents (not just the commit graph) that
+none of the eval-regression-gate work below was clobbered.
 
 ## In Progress / Blocked On
 
-- **Nothing currently blocked** — waiting on the user to open the PR and
-  watch the first real CI run.
-- **Phase 2 (production self-health monitoring)** not started. Explicitly
-  paused before starting because it touches the live safety-critical
-  pipeline (`src/pipeline.py`) and one piece — a metadata-only heartbeat so
-  ops can see camera health remotely — has no defined destination (no
+- **Confirming the CI workflow actually passes** — a PR updating this doc
+  is being opened right now specifically to test it. Check its Actions run.
+- **Phase 2 (production self-health monitoring)** not started. Paused
+  before starting because it touches the live safety-critical pipeline
+  (`src/pipeline.py`) and one piece — a metadata-only heartbeat so ops can
+  see camera health remotely — has no defined destination (no
   server/endpoint exists in this repo to receive it). Needs a decision
   before building: what receives the heartbeat, and how that's exposed
   without violating the "video never leaves the building" promise.
@@ -45,7 +69,7 @@ network access to Kaggle/ultralytics, timing/timeout).
 
 ## Recently Completed
 
-- **Eval regression gating** (5 commits on `feat/eval-guardrails`):
+- **Eval regression gating** (merged via PR #1 into `upstream/master`):
   - `src/evaluate.py` — missed falls now log *why*: body angle at
     fall_start, YOLO tracking-loss %, longest FSM SUSPECT streak vs.
     `FALL_CONFIRM_FRAMES`, hip_y/aspect-ratio ranges, and a categorized
@@ -66,9 +90,18 @@ network access to Kaggle/ultralytics, timing/timeout).
     precision/recall weight) could block a change that trades precision
     for recall on a feature where recall is explicitly prioritized (bed
     exit wants >95% recall specifically).
+- **2026-07-01: reconciled `origin`/`upstream` divergence.** PR #1 merged
+  into `upstream/master` while `origin/master` only had this doc's initial
+  commit. Merged `upstream/master` into `origin/master` (clean, no
+  conflicts — verified by diffing final file contents, not just trusting
+  the merge commit). `origin/master` now matches `upstream/master` plus
+  this doc.
 
 ## Known Gotchas
 
+- **`pull_request`-triggered GitHub Actions workflows don't run on the PR
+  that introduces them** — they use the base branch's copy of the
+  workflow file. Bit everyone on `eval.yml`/PR #1 (see above).
 - **Le2i's real Kaggle layout doesn't match what `evaluate.py` expects.**
   Kaggle has `{subset}/{subset}/Videos/*.avi` and
   `{subset}/{subset}/Annotation_files/*.txt` (double-nested, videos in a
@@ -86,6 +119,13 @@ network access to Kaggle/ultralytics, timing/timeout).
   `CI_BENCHMARK_VIDEOS` in `run_eval.py` deliberately pins to videos 1-15
   to stay comparable to that baseline; don't casually "fix" this to use
   all 48 without also deciding whether to re-baseline `all_runs.csv`.
+- **`check_regression.py` assumes the physically last row in
+  `all_runs.csv` is "this run"** — it's meant to run immediately after
+  `run_eval.py` appends a fresh row in the same job, not as a standalone
+  historical query. Running it manually against the full committed
+  history will check whatever run happens to be last in the file (which
+  may not be the benchmark you care about) — it's working as intended, not
+  a bug, but confusing if you forget this.
 - **There's an untracked nested `carewatchai/` directory** at the repo
   root (its own git repo, `?? carewatchai/` in git status) — unexplained,
   not touched, not part of any of the above work. Ask before deleting or
@@ -97,7 +137,10 @@ network access to Kaggle/ultralytics, timing/timeout).
 ## Where to Look
 
 - Product strategy, feature priority, target metrics: `ROADMAP.md`
-- Eval pipeline: `src/evaluate.py` (per-video), `scripts/run_eval.py`
-  (batch runner + Kaggle download), `scripts/check_regression.py` (gate)
+- Eval pipeline (FSM path): `src/evaluate.py` (per-video),
+  `scripts/run_eval.py` (batch runner + Kaggle download),
+  `scripts/check_regression.py` (gate)
+- Eval pipeline (ML path): `src/ml_fall_fsm.py`, `src/evaluate_multicam.py`,
+  `scripts/train_fall_classifier.py`
 - Runtime detection pipeline: `src/pipeline.py`, `src/fall_fsm.py`
 - Dashboard: `dashboard/app.py`
