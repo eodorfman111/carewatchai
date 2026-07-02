@@ -1,0 +1,68 @@
+name: Debug Crash (temporary)
+
+# Temporary debugging tool — NOT part of the normal CI pipeline. Opens an
+# interactive SSH session (via tmate) into a real ubuntu-latest runner so
+# we can attach gdb to the "corrupted double-linked list" / "double free
+# or corruption (!prev)" / "munmap_chunk(): invalid pointer" crash inside
+# torch's native Conv2d forward that's been blocking the Eval Regression
+# Gate workflow — see eval.yml and HANDOFF.md for the full history of
+# ruled-out causes (CUDA bindings, thread count, duplicate OpenMP,
+# AVX-512 capability, torch version, lap's native extension — none of
+# them fixed it).
+#
+# Deliberately manual (workflow_dispatch only, no automatic trigger) and
+# does NOT load KAGGLE_API_TOKEN or any other secret — the repro doesn't
+# need real Kaggle videos, just a synthetic frame, and this repo is
+# public so the tmate connection string is visible in the (public)
+# Actions log for the duration of the session. Delete this file once the
+# crash is root-caused.
+#
+# To use: trigger manually from the Actions tab ("Run workflow"), then
+# watch this run's log for the tmate SSH connection line (looks like
+# `ssh <session>@nyc1.tmate.io`) and share it immediately — the session
+# stays open until someone connects or the step times out.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install repro dependencies + gdb
+        run: |
+          sudo apt-get update && sudo apt-get install -y gdb
+          pip install torch==2.3.1 torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install ultralytics opencv-python-headless numpy
+
+      - name: Write minimal repro script
+        run: |
+          cat > /tmp/repro.py <<'EOF'
+          import cv2, numpy as np
+          from ultralytics import YOLO
+          model = YOLO("yolo11n-pose.pt")
+          frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
+          for _ in range(30):
+              results = model.track(frame, tracker="bytetrack.yaml", persist=True, verbose=False)
+          print("no crash after 30 frames")
+          EOF
+          cat > /tmp/repro_torch_only.py <<'EOF'
+          import torch
+          conv = torch.nn.Conv2d(3, 16, 3)
+          x = torch.randn(1, 3, 64, 64)
+          for _ in range(200):
+              y = conv(x)
+          print("no crash")
+          EOF
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: false

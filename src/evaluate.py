@@ -24,6 +24,7 @@ import types
 
 import cv2
 import numpy as np
+import torch
 
 # Every crash we've hit on GitHub Actions ubuntu-latest (glibc heap
 # corruption: "corrupted double-linked list" / "double free or corruption
@@ -74,6 +75,22 @@ from ultralytics.nn.tasks import BaseModel
 # — kept disabled since fusing doesn't affect what the model predicts and
 # our fixed 15-video CI benchmark doesn't need the speed win.
 BaseModel.fuse = lambda self, verbose=True: self
+
+# Reproduced the crash in a real Linux x86_64 container (Docker w/ QEMU
+# emulation) running the exact same torch==2.3.1 build as CI. It didn't
+# crash there, but printed: "[W NNPACK.cpp:61] Could not initialize
+# NNPACK! Reason: Unsupported hardware." — NNPACK is an alternate
+# convolution backend torch uses opportunistically when the CPU supports
+# it; QEMU's emulated CPU doesn't, so it silently falls back to a
+# different kernel there. Real GitHub Actions hardware very likely *does*
+# pass NNPACK's capability check, meaning it's actually used on the exact
+# runner where every crash has happened — and NNPACK has a documented
+# history of CPU-specific instability. Disabling it (a real, documented
+# torch API, not a hack) forces the same fallback kernel this container
+# uses by necessity. Best lead so far, but not confirmed on real Linux
+# hardware — could not force NNPACK on under emulation to get a true
+# positive test.
+torch.backends.nnpack.set_flags(False)
 
 from config import (
     POSE_MODEL, CONF_THRESHOLD, IOU_THRESHOLD, TRACKER_CONFIG,
